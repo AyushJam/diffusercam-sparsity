@@ -113,6 +113,7 @@ def setup(load_gt=True, load_psf=True, load_impulse=False):
             gv.rs_img_size_W,
             normalize=True,
             device=gv.device,
+            save_resized=True,
         )
     elif load_impulse:
         # Test with Delta Image (should get PSF)
@@ -123,17 +124,8 @@ def setup(load_gt=True, load_psf=True, load_impulse=False):
         )  # repeat along colour channels
         image_gt = image_gt.unsqueeze(0)  # add time dimension
 
-    # # 3. Camera Shutter
-    # # Ineffective in this branch!
-    # shutter = camera.Shutter(
-    #     gv.T_l,
-    #     gv.T_e,
-    #     gv.delta,
-    #     gv.rs_img_size_W,
-    #     gv.rs_img_size_H,
-    #     gv.time_d,
-    #     mode=gv.shutter_mode,
-    # )
+    # 3. Camera Shutter
+    # Use global shutter
     shutter = None
 
     # 2. Load PSF
@@ -152,14 +144,9 @@ def setup(load_gt=True, load_psf=True, load_impulse=False):
 if __name__ == "__main__":
     image_gt, shutter, H, crop, pad = setup(load_gt=True, load_psf=True)
 
-    mode = "diffuser"
-
-    captured_image = forward(image_gt, shutter, H, crop, pad, mode=mode)
+    captured_image = forward(image_gt, shutter, H, crop, pad, mode="diffuser")
     
     if captured_image.ndim == 4 and captured_image.shape[0] == 1:
         captured_image = captured_image.squeeze(0)
 
-    if mode == "diffuser":
-        save_color_image_tensor(captured_image, gv.measurement_path)
-    elif mode == "sensor":
-        save_color_image_tensor(captured_image, gv.save_rs_filepath)
+    save_color_image_tensor(captured_image, gv.measurement_path)

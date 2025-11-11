@@ -54,7 +54,7 @@ def initMatrices(h, rgb=gv.rgb, large_psf=True):
         hpad = torch.zeros(padded_shape)
         hpad[starti:endi, startj:endj] = h
         H = fft.rfft2(fft.ifftshift(hpad, dim=(0, 1)), norm="ortho", dim=(0, 1))
-    
+
     Hadj = torch.conj(H)
 
     # print("hpad shape: ", hpad.shape) -> 512, 1024, 3
@@ -236,7 +236,7 @@ def momentum_update(vk, p, mu, parent_vars, proj_params):
 def fista_update(vk, tk, zk, parent_vars, proj_params):
     """
     Required fix.
-    Known bug: doesn't work. 
+    Known bug: doesn't work.
     Try momentum update.
     """
     [H, Hadj, b, crop, pad, alpha, proj] = parent_vars
@@ -284,6 +284,7 @@ def grad_descent(
     tv_losslist = []
     total_losslist = []
 
+    # ECE 251C: Choose projection type
     if proj_type == "non_neg":
         proj = non_neg
     elif proj_type == "haar":
@@ -347,8 +348,7 @@ def grad_descent(
         tv_losslist.append(tv_loss.detach().cpu().item())
         total_losslist.append(total_loss.detach().cpu().item())
 
-        # Disable to save memory when unrolling! (move to a function!)
-        # Handle plotting stuff
+        # ANALYSIS: Handle plotting stuff
         with torch.no_grad():
             # Convert this into another function...
             if itr % gv.solver_plot_f == 0:
@@ -401,9 +401,9 @@ def grad_descent(
                 ax[4].plot(total_losslist, color="black", label="tv3d+df_loss")
                 ax[4].legend()
 
-                # plt.title((gv.solver_plot_dir + "fista_itr_{}.png").format(itr))
+                plt.title(("fista_itr_{}.png").format(itr))
                 fig.tight_layout()
-                # plt.savefig((gv.solver_plot_dir + "fista_itr.png"))
+                # plt.savefig((gv.plots_dir + "fista_itr.png"))
                 plt.close(fig)
 
                 display.clear_output(wait=True)
@@ -423,6 +423,5 @@ def grad_descent(
                 plt.close("all")
 
     losslist = [df_losslist, mse_losslist, tv_losslist, total_losslist]
-    # np.save((gv.recon_gif_dir + "sceneout.npy"), scene_out.detach().cpu().numpy())
 
     return scene_out, losslist

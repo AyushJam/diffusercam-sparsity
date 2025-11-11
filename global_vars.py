@@ -6,11 +6,11 @@ Required for the forward model
 import torch
 
 """ Path """
-image = "lion.png"
+image = "cheetah.png"
 
 solver_output_dir = "./outputs/"
 recon_dir = "./recons/"
-plots_dir =  "./plots/"
+plots_dir =  "./plots/" + image.split(".")[0] + "/"
 data_dir = "./input/"
 captured_dir = "./captured/"
 
@@ -87,7 +87,7 @@ gs_img_size_W = int(gs_physical_sensor_W)
 
 """ Optimization Parameters """
 solver_plot_f = 50
-niter = 1000
+niter = 500
 alpha = 0.8  # step size for gradient update
 tau = 2e-7  # spatial regularization for TV
 tau_t = 60e9  # temporal denoising weight for TV

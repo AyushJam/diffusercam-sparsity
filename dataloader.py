@@ -6,7 +6,7 @@ import numpy as np
 
 
 def load_color_image_as_tensor(
-    path, rs_img_size_H, rs_img_size_W, normalize=True, device="cpu"
+    path, rs_img_size_H, rs_img_size_W, normalize=True, device="cpu", save_resized=False
 ):
     """
     Loads a color JPG image, resizes it, and returns it as a video-format torch tensor
@@ -18,6 +18,7 @@ def load_color_image_as_tensor(
     - rs_img_size_W (int): Resized width.
     - normalize (bool): If True, normalize pixel values to [0, 1]. Otherwise, return uint8 tensor.
     - device (str or torch.device): Device to put the tensor on.
+    - save_resized (bool): If True, saves the resized image with '_resized' suffix.
 
     Returns:
     - torch.Tensor: Tensor of shape (1, rs_img_size_H, rs_img_size_W, 3)
@@ -32,6 +33,12 @@ def load_color_image_as_tensor(
     resized_rgb = cv2.resize(
         image_rgb, (rs_img_size_W, rs_img_size_H), interpolation=cv2.INTER_CUBIC
     )
+
+    if save_resized:
+        base, ext = os.path.splitext(path)
+        resized_path = f"{base}_resized{ext}"
+        cv2.imwrite(resized_path, cv2.cvtColor(resized_rgb, cv2.COLOR_RGB2BGR))
+        print(f"Resized input image saved at: {resized_path}")
 
     if normalize:
         image_tensor = torch.from_numpy(resized_rgb.astype(np.float32) / 255.0)

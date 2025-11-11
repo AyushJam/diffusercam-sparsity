@@ -30,7 +30,6 @@ gt = load_color_image_as_tensor(
 
 psf = read_psf()
 
-
 step_list = [gv.alpha, gv.tau, gv.tau_t]
 
 deconvolved_scene, losslist = utils_diff.grad_descent(
@@ -38,8 +37,8 @@ deconvolved_scene, losslist = utils_diff.grad_descent(
     diffuser_image,
     gt,
     step_list,
-    niter=500,
-    proj_type="haar",
+    niter=gv.niter,
+    proj_type="haar", # ECE 251C FOCUS
     update_method="fista",
 )
 
