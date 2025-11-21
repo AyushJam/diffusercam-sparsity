@@ -5,7 +5,7 @@ import global_vars as gv
 from IPython import display
 from tqdm import tqdm
 from dataloader import export_gif
-import haar
+import total_variation
 import matplotlib.pyplot as plt
 
 
@@ -224,7 +224,7 @@ def grad_descent(
     if proj_type == "non_neg":
         proj = non_neg
     elif proj_type == "haar":
-        proj = haar.tv3dApproxHaar_proj
+        proj = total_variation.tv3dApproxHaar_proj
     else:
         proj = lambda x: x
 
@@ -280,7 +280,7 @@ def grad_descent(
             # loss metrics
             df_loss = torch.log(loss_fn(img_out, b[0].real))  # compare with input image
             mse_loss = loss_fn(scene_out[0], gt[0])  # compare with GT for scene
-            tv_loss = haar.tv3dApproxHaar_norm(
+            tv_loss = total_variation.tv3dApproxHaar_norm(
                 scene_out
             )  # TV regularization on estimate
             total_loss = df_loss + tau * tv_loss

@@ -38,7 +38,7 @@ deconvolved_scene, losslist = utils_diff.grad_descent(
     gt,
     step_list,
     niter=gv.niter,
-    proj_type="haar", # ECE 251C FOCUS
+    proj_type="tv", # ECE 251C FOCUS
     update_method="fista",
 )
 

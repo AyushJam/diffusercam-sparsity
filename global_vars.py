@@ -6,7 +6,7 @@ Required for the forward model
 import torch
 
 """ Path """
-image = "cheetah.png"
+image = "lion.png"
 
 solver_output_dir = "./outputs/"
 recon_dir = "./recons/"

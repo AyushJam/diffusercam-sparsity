@@ -6,10 +6,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 try:
-    from . import haar
+    from . import total_variation
     from . import global_vars as gv
 except ImportError:
-    import haar
+    import total_variation
     import global_vars as gv
 
 
@@ -287,8 +287,13 @@ def grad_descent(
     # ECE 251C: Choose projection type
     if proj_type == "non_neg":
         proj = non_neg
+    elif proj_type == "tv":
+        proj = total_variation.tv3dApproxHaar_proj
     elif proj_type == "haar":
-        proj = haar.tv3dApproxHaar_proj
+        # from utils_haar import soft_threshold
+        # TODO: move projection here
+        # proj = soft_threshold
+        raise NotImplementedError("Haar projection not implemented in this version.")
     else:
         proj = lambda x: x
 
@@ -340,7 +345,7 @@ def grad_descent(
         # does not play a role in the gradient descent algorithm
         df_loss = torch.log(loss_fn(img_out, b[0].real))  # take the first frame
         mse_loss = loss_fn(scene_out, gt)
-        tv_loss = haar.tv3dApproxHaar_norm(scene_out)
+        tv_loss = total_variation.tv3dApproxHaar_norm(scene_out)
         total_loss = df_loss + tau * tv_loss
 
         df_losslist.append(df_loss.detach().cpu().item())
