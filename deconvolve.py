@@ -30,18 +30,17 @@ gt = load_color_image_as_tensor(
 
 psf = read_psf()
 
-step_list = [gv.alpha, gv.tau, gv.tau_t]
-
 deconvolved_scene, losslist = utils_diff.grad_descent(
     psf,
     diffuser_image,
     gt,
-    step_list,
     niter=gv.niter,
-    proj_type="tv", # ECE 251C FOCUS
+    proj_type=gv.use_denoiser,  # ECE 251C FOCUS
     update_method="fista",
 )
 
 deconvolved_image = deconvolved_scene[0]
-savePath = gv.recon_path
+savePath = gv.recon_dir + "_".join(
+    ["recon", gv.image.split(".")[0], gv.use_denoiser]
+) + "." +  gv.image.split(".")[1]
 save_color_image_tensor(deconvolved_image, savePath)

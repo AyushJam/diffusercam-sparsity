@@ -1,15 +1,19 @@
+import os
 import numpy as np
 import torch
 import torch.fft as fft
 from IPython import display
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from skimage.metrics import structural_similarity
 
 try:
     from . import total_variation
+    from . import haar
     from . import global_vars as gv
 except ImportError:
     import total_variation
+    import haar
     import global_vars as gv
 
 
@@ -257,9 +261,7 @@ def fista_update(vk, tk, zk, parent_vars, proj_params):
     return vkp1, tkp1, zkp1, loss
 
 
-def grad_descent(
-    h, b, gt, step_list, niter=100, proj_type="haar", update_method="fista"
-):
+def grad_descent(h, b, gt, niter=100, proj_type="haar", update_method="fista"):
     """
     Given the psf h and the captured image b,
     find what the scene looked like.
@@ -282,26 +284,21 @@ def grad_descent(
     df_losslist = []
     mse_losslist = []
     tv_losslist = []
-    total_losslist = []
 
     # ECE 251C: Choose projection type
     if proj_type == "non_neg":
         proj = non_neg
     elif proj_type == "tv":
         proj = total_variation.tv3dApproxHaar_proj
+        proj_params = (gv.tau_tv, gv.tau_t)
     elif proj_type == "haar":
-        # from utils_haar import soft_threshold
-        # TODO: move projection here
-        # proj = soft_threshold
-        raise NotImplementedError("Haar projection not implemented in this version.")
+        proj = haar.wavelet_denoising_haar
+        proj_params = (gv.tau_haar, gv.level)
     else:
         proj = lambda x: x
 
     # hyperparameters from global vars
-    alpha, tau, tau_t = step_list
-
-    parent_vars = [H, Hadj, b, crop, pad, alpha, proj]
-    proj_params = [tau, tau_t]
+    parent_vars = [H, Hadj, b, crop, pad, gv.alpha, proj]
 
     # random initialization
     vk = v0
@@ -330,7 +327,7 @@ def grad_descent(
         if gv.psf_convolve:
             scene_out = crop(vk)
         else:
-            scene_out = proj(vk, tau, tau_t)
+            scene_out = proj(vk, *proj_params)
 
         # estimated scene
         scene_out = non_neg(scene_out)
@@ -346,87 +343,139 @@ def grad_descent(
         df_loss = torch.log(loss_fn(img_out, b[0].real))  # take the first frame
         mse_loss = loss_fn(scene_out, gt)
         tv_loss = total_variation.tv3dApproxHaar_norm(scene_out)
-        total_loss = df_loss + tau * tv_loss
 
         df_losslist.append(df_loss.detach().cpu().item())
         mse_losslist.append(mse_loss.detach().cpu().item())
         tv_losslist.append(tv_loss.detach().cpu().item())
-        total_losslist.append(total_loss.detach().cpu().item())
 
-        # ANALYSIS: Handle plotting stuff
-        with torch.no_grad():
-            # Convert this into another function...
-            if itr % gv.solver_plot_f == 0:
-                scene = scene_out.detach().cpu().numpy()
-                img = img_out.detach().cpu().numpy()
-                img_gt = b.detach().cpu().numpy()
-                fig, ax = plt.subplots(1, 3, figsize=(25, 10))
+    losslist = [df_losslist, mse_losslist, tv_losslist]
 
-                ax[0].imshow(scene[0] / np.max(scene[0]))
-                ax[0].set_title("Estimated Scene")
-                ax[1].imshow(img[0] / np.max(img[0]))
-                ax[1].set_title("Estimated Measured Image")
-                ax[2].imshow(np.real(img_gt[0]) / np.max(img_gt[0]))  # first frame
-                ax[2].set_title("Measurement")
+    # calculate psnr
+    final_psnr = calculate_psnr(scene_out, gt, data_range=1.0)
+    final_psnr_rounded = round(final_psnr, 2)
 
-                plt.suptitle(
-                    "Reconstruction after iteration {}".format(itr)
-                    + "\n"
-                    + "alpha: "
-                    + str(alpha)
-                    + "\n"
-                    + "tau: "
-                    + str(tau)
-                    + "\n"
-                    + "tau_t: "
-                    + str(tau_t)
-                )
-                fig.tight_layout()
-                # plt.savefig((gv.solver_output_dir + "slices_itr_{}.png").format(itr))
-                plt.close(fig)
+    # calculate ssim
+    final_ssim = calculate_ssim(scene_out, gt, data_range=1.0)
 
-                # plt.figure()
-                fig, ax = plt.subplots(5, 1, figsize=(15, 25))
+    # plotting
+    plot_filename = os.path.join(
+        gv.plots_dir, "{}_loss_{}.png".format(gv.image.split(".")[0], gv.use_denoiser)
+    )
+    fig, ax = plt.subplots(
+        1, 2, figsize=(12, 5)
+    )  # Adjusted figsize for 3 horizontal plots
+    iterations = range(1, len(df_losslist) + 1)
 
-                ax[0].plot(df_losslist, color="blue", label="log df_loss")
-                ax[0].plot(mse_losslist, color="red", label="mse_loss")
-                ax[0].plot(tv_losslist, color="green", label="tv3d_loss")
-                ax[0].plot(total_losslist, color="black", label="tv3d+df_loss")
-                ax[0].legend()
+    ax[0].plot(
+        iterations, df_losslist, color="blue", label="Measurement Loss ($\log f$)"
+    )
+    ax[0].set_title("1) Measurement Loss (Log Likelihood)")
+    ax[0].set_xlabel("Iterations")
+    ax[0].set_ylabel("Loss Value")
+    ax[0].grid(True)
+    ax[0].legend()
 
-                ax[1].plot(df_losslist[-3000:], color="blue", label="log df_loss")
-                ax[1].legend()
+    ax[1].plot(iterations, mse_losslist, color="red", label="Scene Loss (MSE)")
+    ax[1].set_title(
+        f"2) Scene Loss (MSE vs. GT)\nFinal PSNR: {final_psnr_rounded} dB\nFinal SSIM: {final_ssim:.4f}"
+    )
+    ax[1].set_xlabel("Iterations")
+    ax[1].set_ylabel("Loss Value")
+    ax[1].grid(True)
+    ax[1].legend()
 
-                ax[2].plot(mse_losslist, color="red", label="mse_loss≥–")
-                ax[2].legend()
+    # don't plot tv norm
+    # if gv.use_denoiser == "tv":
+    #     ax[2].plot(iterations, tv_losslist, color="green", label="TV Norm ($\|V\|_\text{TV}$)")
+    #     ax[2].set_title("3) TV Norm Regularization")
+    #     ax[2].set_xlabel("Iterations")
+    #     ax[2].set_ylabel("Norm Value")
+    #     ax[2].grid(True)
+    #     ax[2].legend()
 
-                ax[3].plot(tv_losslist, color="green", label="tv3d_loss")
-                ax[3].legend()
+    tau = gv.tau_tv if gv.use_denoiser == "tv" else gv.tau_haar
 
-                ax[4].plot(total_losslist, color="black", label="tv3d+df_loss")
-                ax[4].legend()
+    plt.suptitle(
+        "Loss and Regularization Convergence over Iterations\n"
+        f"Hyperparameters: $\\alpha$: {gv.alpha}, $\\tau$: {tau}"
+    )
 
-                plt.title(("fista_itr_{}.png").format(itr))
-                fig.tight_layout()
-                # plt.savefig((gv.plots_dir + "fista_itr.png"))
-                plt.close(fig)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout for suptitle
 
-                display.clear_output(wait=True)
-
-                df_losslist.append(df_loss.detach().cpu().item())
-                mse_losslist.append(mse_loss.detach().cpu().item())
-                tv_losslist.append(tv_loss.detach().cpu().item())
-                total_losslist.append(total_loss.detach().cpu().item())
-
-                if itr % gv.solver_plot_f == 0:
-                    print(
-                        f"Inner loop {itr}: df_loss {df_loss.detach().cpu().item():.3e}, "
-                        f"mse_loss: {mse_loss.detach().cpu().item():.3e}, tv3d_loss: "
-                        f"{tv_loss.detach().cpu().item():.3e}, total_loss: {total_loss.detach().cpu().item():.3e}"
-                    )
-
-                plt.close("all")
-
-    losslist = [df_losslist, mse_losslist, tv_losslist, total_losslist]
+    plt.savefig(plot_filename)
+    plt.close(fig)
 
     return scene_out, losslist
+
+
+# --- PSNR Calculation Function ---
+def calculate_psnr(img1, img2, data_range=None):
+    """
+    Calculates PSNR between two tensors/arrays.
+
+    :param img1: Reconstructed scene (torch.Tensor or numpy.ndarray)
+    :param img2: Ground truth scene (torch.Tensor or numpy.ndarray)
+    :param data_range: Maximum possible pixel value (e.g., 1.0 or 255).
+    :return: PSNR value (float)
+    """
+    if isinstance(img1, torch.Tensor):
+        img1 = img1.detach().cpu().numpy()
+    if isinstance(img2, torch.Tensor):
+        img2 = img2.detach().cpu().numpy()
+
+    # Ensure arrays are correctly shaped for MSE calculation (e.g., flattened or compatible)
+    # Assuming img1 and img2 have the same shape.
+    mse = np.mean((img1 - img2) ** 2)
+
+    if mse == 0:
+        return float("inf")
+
+    # Determine the maximum possible pixel value
+    # If the data is normalized between 0 and 1, max_val is 1.0.
+    if data_range is None:
+        # Default to 1.0 if not specified, common for float tensor data
+        max_val = 1.0
+    else:
+        max_val = data_range
+
+    psnr = 10 * np.log10(max_val**2 / mse)
+    return psnr
+
+
+def calculate_ssim(img1, img2, data_range=1.0):
+    """
+    Calculates SSIM between two scenes with shape (T, H, W, C)
+
+    :param img1: Reconstructed scene (torch.Tensor or numpy.ndarray)
+    :param img2: Ground truth scene (torch.Tensor or numpy.ndarray)
+    :param data_range: Maximum possible pixel value.
+    :return: Average SSIM value (float)
+    """
+    if isinstance(img1, torch.Tensor):
+        img1 = img1.detach().cpu().numpy()
+    if isinstance(img2, torch.Tensor):
+        img2 = img2.detach().cpu().numpy()
+
+    # Check if the shape is (T, H, W, C)
+    if img1.ndim != 4:
+        raise ValueError(
+            f"SSIM input array must be 4D (T, H, W, C), but got {img1.ndim}D array with shape {img1.shape}"
+        )
+
+    T = img1.shape[0]  # Time dimension
+
+    ssim_values = []
+
+    # Iterate over the time dimension (T)
+    for t in range(T):
+        # Pass the (H, W, C) slice to the SSIM function
+        ssim_slice = structural_similarity(
+            im1=img1[t],  # (H, W, C)
+            im2=img2[t],  # (H, W, C)
+            data_range=data_range,
+            multichannel=True,  # <-- Crucial: Tells skimage to treat the last dimension as color channels (C)
+            channel_axis=-1,  # Explicitly specifies color channels are on the last axis
+        )
+        ssim_values.append(ssim_slice)
+
+    return np.mean(ssim_values)

@@ -10,14 +10,13 @@ image = "lion.png"
 
 solver_output_dir = "./outputs/"
 recon_dir = "./recons/"
-plots_dir =  "./plots/" + image.split(".")[0] + "/"
+plots_dir =  "./plots/"
+# plots_dir =  "./plots/" + image.split(".")[0] + "/"
 data_dir = "./input/"
 captured_dir = "./captured/"
 
 sample = data_dir + image
 measurement_path = captured_dir + "rs_" + image
-recon_path = recon_dir + "recon_" + image
-
 
 """" System """
 # Device settings (GPU/CPU)
@@ -43,10 +42,6 @@ fileout_psf = "./psf/"
 psf_convolve = True
 large_psf = False
 normalize_psf = True
-add_noise = False
-
-if add_noise:
-    noise_std = 2e-6
 
 
 """ System Parameters """
@@ -87,7 +82,23 @@ gs_img_size_W = int(gs_physical_sensor_W)
 
 """ Optimization Parameters """
 solver_plot_f = 50
-niter = 500
+niter = 200
 alpha = 0.8  # step size for gradient update
-tau = 2e-7  # spatial regularization for TV
-tau_t = 60e9  # temporal denoising weight for TV
+
+add_noise = False
+if add_noise:
+    noise_std = 2e-6
+
+# available: "tv" "haar"
+use_denoiser = "haar"
+
+if use_denoiser == "tv":
+    tau_tv = 2e-5  # spatial regularization for TV
+    tau_t = 0 # temporal denoising weight for TV
+elif use_denoiser == "haar":
+    tau_haar = 1
+    level = 5
+    pass
+
+
+    
