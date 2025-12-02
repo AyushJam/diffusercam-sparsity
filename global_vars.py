@@ -6,7 +6,7 @@ Required for the forward model
 import torch
 
 """ Path """
-image = "lion.png"
+image = "texture2.png"
 
 solver_output_dir = "./outputs/"
 recon_dir = "./recons/"
@@ -90,7 +90,7 @@ if add_noise:
     noise_std = 2e-6
 
 # available: "tv" "haar"
-use_denoiser = "haar"
+use_denoiser = "tv"
 
 if use_denoiser == "tv":
     tau_tv = 2e-5  # spatial regularization for TV
