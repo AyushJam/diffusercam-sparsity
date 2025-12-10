@@ -6,7 +6,7 @@ Required for the forward model
 import torch
 
 """ Path """
-image = "texture2.png"
+image = "natural.png"
 
 solver_output_dir = "./outputs/"
 recon_dir = "./recons/"
@@ -93,11 +93,11 @@ if add_noise:
 use_denoiser = "tv"
 
 if use_denoiser == "tv":
-    tau_tv = 2e-5  # spatial regularization for TV
+    tau_tv = 2e-6  # spatial regularization for TV
     tau_t = 0 # temporal denoising weight for TV
 elif use_denoiser == "haar":
     tau_haar = 1
-    level = 5
+    level = 90
     pass
 
 

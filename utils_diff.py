@@ -231,8 +231,8 @@ def momentum_update(vk, p, mu, parent_vars, proj_params):
     vk += -mu * p + (1 + mu) * p_next
 
     # projection
-    vkp1 = proj(vk, proj_params[0], proj_params[1])
-    vkp1 = non_neg(vkp1)
+    # vkp1 = proj(vk, proj_params[0], proj_params[1])
+    vkp1 = non_neg(vk)
 
     return vkp1, p_next, loss
 
@@ -261,7 +261,7 @@ def fista_update(vk, tk, zk, parent_vars, proj_params):
     return vkp1, tkp1, zkp1, loss
 
 
-def grad_descent(h, b, gt, niter=100, proj_type="haar", update_method="fista"):
+def grad_descent(h, b, gt, niter, proj_type, update_method):
     """
     Given the psf h and the captured image b,
     find what the scene looked like.
@@ -288,6 +288,7 @@ def grad_descent(h, b, gt, niter=100, proj_type="haar", update_method="fista"):
     # ECE 251C: Choose projection type
     if proj_type == "non_neg":
         proj = non_neg
+        proj_params = None
     elif proj_type == "tv":
         proj = total_variation.tv3dApproxHaar_proj
         proj_params = (gv.tau_tv, gv.tau_t)
@@ -393,12 +394,12 @@ def grad_descent(h, b, gt, niter=100, proj_type="haar", update_method="fista"):
     #     ax[2].grid(True)
     #     ax[2].legend()
 
-    tau = gv.tau_tv if gv.use_denoiser == "tv" else gv.tau_haar
+    # tau = gv.tau_tv if gv.use_denoiser == "tv" else gv.tau_haar
 
-    plt.suptitle(
-        "Loss and Regularization Convergence over Iterations\n"
-        f"Hyperparameters: $\\alpha$: {gv.alpha}, $\\tau$: {tau}"
-    )
+    # plt.suptitle(
+    #     "Loss and Regularization Convergence over Iterations\n"
+    #     f"Hyperparameters: $\\alpha$: {gv.alpha}, $\\tau$: {tau}"
+    # )
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout for suptitle
 
