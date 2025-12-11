@@ -90,14 +90,17 @@ if add_noise:
     noise_std = 2e-6
 
 # available: "tv" "haar"
-use_denoiser = "tv"
+use_denoiser = "bayesShrink"
 
 if use_denoiser == "tv":
     tau_tv = 2e-6  # spatial regularization for TV
     tau_t = 0 # temporal denoising weight for TV
 elif use_denoiser == "haar":
     tau_haar = 1
-    level = 90
+    level = 8
+elif use_denoiser == "bayesShrink":
+    tau_haar = 1 #placeholder to not mess up deconvolution
+    level = 5
     pass
 
 

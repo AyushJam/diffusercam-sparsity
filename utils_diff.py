@@ -10,11 +10,13 @@ from skimage.metrics import structural_similarity
 try:
     from . import total_variation
     from . import haar
+    from . import bayes_shrink
     from . import global_vars as gv
 except ImportError:
     import total_variation
     import haar
     import global_vars as gv
+    import bayes_shrink
 
 
 def initMatrices(h, rgb=gv.rgb, large_psf=True):
@@ -294,6 +296,9 @@ def grad_descent(h, b, gt, niter, proj_type, update_method):
         proj_params = (gv.tau_tv, gv.tau_t)
     elif proj_type == "haar":
         proj = haar.wavelet_denoising_haar
+        proj_params = (gv.tau_haar, gv.level)
+    elif proj_type == "bayesShrink":
+        proj = bayes_shrink.wavelet_denoising_bayes
         proj_params = (gv.tau_haar, gv.level)
     else:
         proj = lambda x: x
